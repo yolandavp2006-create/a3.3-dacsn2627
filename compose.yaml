@@ -2,9 +2,12 @@ services:
   bd:
     image: mariadb:11.8
     enviroment:
-    volumes:
-    networks:
-    ports:
+      - MARIADB_RANDOM_ROOT_PASSWORD= "1"
+      - MARIADB_DATABASE=${DB_NAME:?falta en .env}
+      - MARIADB_USER=${DB_USER:?falta en .env}
+      - MARIADB_PASSWORD=${DB_PASS:?falta en .env}
+    volumes: db_datos:/var/lib/mysql
+    networks: interna
     healthcheck:
       test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
       interval: 5s
@@ -12,4 +15,41 @@ services:
       retries: 10
       start_period: 30s
     depends_on:
-    restart:
+    restart: unless-stopped
+
+  tienda:
+    image: prestashop/prestashop:8.2-apache
+    enviroment:
+      - DB_USER=${DB_USER:?falta en .env}
+      - DB_PASSWD=${DB_PASS:?falta en .env}
+      - DB_NAME=${DB_NAME:?falta en .env}
+      - PS_INSTALL_AUTO= "1"
+      - PS_LANGUAGE= es
+      - PS_COUNTRY= ES
+      - PS_FOLDER_ADMIN= admin-tienda
+      - PS_FOLDER_INSTALL= install-tienda
+      - PS_DEMO_MODE= "0"
+    volumes: tienda_datos:/var/www/html
+    networks: interna
+    ports:
+      - "${PUERTO:-8080}:80"
+    depends_on:
+      bd:
+        - condition= service_healthy
+      correo:
+        - condition= service_started
+    restart: unless-stopped
+
+  correo:
+    image: axllent/mailpit:v1.32
+    networks: interna
+    ports:
+      - "${PUERTO_CORREO:-8025}:8025"
+    restart: unless-stopped
+
+adminer:
+  image: adminer:5
+  networks: interna
+  ports:
+    - "${PUERTO_ADMINER:-8081}:8081"
+  restart: unless-stopped
