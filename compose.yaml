@@ -1,0 +1,15 @@
+services:
+  bd:
+    image: mariadb:11.8
+    enviroment:
+    volumes:
+    networks:
+    ports:
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    depends_on:
+    restart:
