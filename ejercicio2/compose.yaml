@@ -1,0 +1,84 @@
+services:
+  bd:
+    image: mariadb:11.8
+    environment:
+      - MARIADB_RANDOM_ROOT_PASSWORD=1
+      - MARIADB_DATABASE=${DB_NAME:?falta en .env}
+      - MARIADB_USER=${DB_USER:?falta en .env}
+      - MARIADB_PASSWORD=${DB_PASS:?falta en .env}
+    volumes:
+      - db_datos:/var/lib/mysql
+    networks:
+      - interna
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:17
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - FORGEJO__database__DB_TYPE=postgres
+      - FORGEJO__database__HOST=db:5432
+      - FORGEJO__database__NAME=dba33
+      - FORGEJO__database__USER=dbusera33
+      - FORGEJO__database__PASSWD=dbpassa33
+      - FORGEJO__server__DOMAIN="${DIRECCION:?falta en el .env}:${PUERTO:-3000}"
+      - FORGEJO__server__ROOT_URL=http://${DIRECCION:?falta en el .env}:${PUERTO:-3000}/
+      - FORGEJO__server__SSH_PORT="${PUERTO_SSH:-2222}"
+      - FORGEJO__server__SSH_LISTEN_PORT="22"
+      - FORGEJO__security__INSTALL_LOCK=true
+      - FORGEJO__mailer__ENABLED=true
+      - FORGEJO__mailer__PROTOCOL=
+      - FORGEJO__mailer__SMTP_ADDR=
+      - FORGEJO__mailer__SMTP_PORT=
+      - FORGEJO__mailer__FROM=
+      - FORGEJO__cache__ADAPTER=
+      - FORGEJO__cache__HOST=
+      - FORGEJO__session__PROVIDER=
+      - FORGEJO__session__PROVIDER_CONFIG=
+      - FORGEJO__queue__TYPE=
+      - FORGEJO__queue__CONN_STR=
+    volumes:
+      - ./forgejo_datos:/data
+    networks:
+      - interna
+    ports:
+      - "${PUERTO:-3000}:3000"
+      - "${PUERTO_SSH:-2222}:22"
+    depends_on:
+      bd:
+        condition: service_healthy
+      correo:
+        condition: service_started
+    restart: unless-stopped
+
+  correo:
+    image: axllent/mailpit:v1.32
+    networks:
+      - interna
+    ports:
+      - "${PUERTO_CORREO:-8025}:8025"
+    restart: unless-stopped
+
+  cache:
+    image: adminer:5
+    environment:
+      - ADMINER_DEFAULT_SERVER=bd
+    networks:
+      - interna
+    ports:
+      - "${PUERTO_ADMINER:-8081}:8080"
+    profiles: ["herramientas"]
+    restart: unless-stopped
+
+volumes:
+  db_datos:
+  tienda_datos:
+networks:
+  interna:
