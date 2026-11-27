@@ -1,17 +1,20 @@
 services:
-  bd:
-    image: mariadb:11.8
+  db:
+    image: postgres:18
     environment:
-      - MARIADB_RANDOM_ROOT_PASSWORD=1
-      - MARIADB_DATABASE=${DB_NAME:?falta en .env}
-      - MARIADB_USER=${DB_USER:?falta en .env}
-      - MARIADB_PASSWORD=${DB_PASS:?falta en .env}
+      - POSTGRES_DB=${DB_NAME:?falta en .env}
+      - POSTGRES_USER=${DB_USER:?falta en .env}
+      - POSTGRES_PASSWORD=${DB_PASS:?falta en .env}
     volumes:
-      - db_datos:/var/lib/mysql
+      - db_datos:/var/lib/postgresql
     networks:
       - interna
     healthcheck:
-      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-postgres}",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -25,25 +28,25 @@ services:
       - USER_GID=1000
       - FORGEJO__database__DB_TYPE=postgres
       - FORGEJO__database__HOST=db:5432
-      - FORGEJO__database__NAME=dba33
-      - FORGEJO__database__USER=dbusera33
-      - FORGEJO__database__PASSWD=dbpassa33
-      - FORGEJO__server__DOMAIN="${DIRECCION:?falta en el .env}:${PUERTO:-3000}"
+      - FORGEJO__database__NAME=${DB_NAME:?falta en .env}
+      - FORGEJO__database__USER=${DB_USER:?falta en .env}
+      - FORGEJO__database__PASSWD=${DB_PASS:?falta en .env}
+      - FORGEJO__server__DOMAIN="${DIRECCION:?falta en el .env}"
       - FORGEJO__server__ROOT_URL=http://${DIRECCION:?falta en el .env}:${PUERTO:-3000}/
       - FORGEJO__server__SSH_PORT="${PUERTO_SSH:-2222}"
       - FORGEJO__server__SSH_LISTEN_PORT="22"
       - FORGEJO__security__INSTALL_LOCK=true
       - FORGEJO__mailer__ENABLED=true
-      - FORGEJO__mailer__PROTOCOL=
-      - FORGEJO__mailer__SMTP_ADDR=
-      - FORGEJO__mailer__SMTP_PORT=
-      - FORGEJO__mailer__FROM=
-      - FORGEJO__cache__ADAPTER=
-      - FORGEJO__cache__HOST=
-      - FORGEJO__session__PROVIDER=
-      - FORGEJO__session__PROVIDER_CONFIG=
-      - FORGEJO__queue__TYPE=
-      - FORGEJO__queue__CONN_STR=
+      - FORGEJO__mailer__PROTOCOL=smtp
+      - FORGEJO__mailer__SMTP_ADDR=correo
+      - FORGEJO__mailer__SMTP_PORT="1025"
+      - FORGEJO__mailer__FROM=forgejo@ejemplo.local
+      - FORGEJO__cache__ADAPTER=redis
+      - FORGEJO__cache__HOST=redis://:${REDIS_PASSWD}@cache:6379/0
+      - FORGEJO__session__PROVIDER=redis
+      - FORGEJO__session__PROVIDER_CONFIG=redis://:${REDIS_PASSWD}@cache:6379/1
+      - FORGEJO__queue__TYPE=redis
+      - FORGEJO__queue__CONN_STR=redis://:${REDIS_PASSWD}@cache:6379/2
     volumes:
       - ./forgejo_datos:/data
     networks:
@@ -52,7 +55,9 @@ services:
       - "${PUERTO:-3000}:3000"
       - "${PUERTO_SSH:-2222}:22"
     depends_on:
-      bd:
+      db:
+        condition: service_healthy
+      cache:
         condition: service_healthy
       correo:
         condition: service_started
@@ -67,18 +72,27 @@ services:
     restart: unless-stopped
 
   cache:
-    image: adminer:5
+    image: redis:7.2
+    command: ["sh", "-c", 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
     environment:
-      - ADMINER_DEFAULT_SERVER=bd
+      REDIS_PASSWORD: ${REDIS_PASSWD:?falta en el fichero .env}
+    volumes:
+      - cache-datos:/data
     networks:
       - interna
-    ports:
-      - "${PUERTO_ADMINER:-8081}:8080"
-    profiles: ["herramientas"]
-    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   db_datos:
   tienda_datos:
+  cache-datos:
 networks:
   interna:

@@ -1,0 +1,40 @@
+[diff]
+	algorithm = histogram
+[core]
+	logallrefupdates = true
+	hooksPath = /data/gitea/home/hooks
+	quotePath = false
+	commitGraph = true
+[gc]
+	reflogexpire = 90
+	writeCommitGraph = true
+[transfer]
+	fsckobjects = true
+[fsck]
+	badtimezone = ignore
+	zeropaddedfilemode = ignore
+	missingspacebeforedate = ignore
+[fetch "fsck"]
+	zeropaddedfilemode = ignore
+	badtimezone = ignore
+	missingspacebeforedate = ignore
+[receive "fsck"]
+	badtimezone = ignore
+	missingspacebeforedate = ignore
+	zeropaddedfilemode = ignore
+[user]
+	name = Forgejo
+	email = forgejo@fake.local
+[receive]
+	advertisePushOptions = true
+	procReceiveRefs = refs/for
+	procReceiveRefs = refs/pull/
+[fetch]
+	writeCommitGraph = true
+[safe]
+	directory = *
+[gpg]
+	format = openpgp
+[uploadpack]
+	allowfilter = true
+	allowAnySHA1InWant = true
