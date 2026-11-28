@@ -2,30 +2,56 @@ services:
   web:
     image: nginx:1.30
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d:ro
-      - codigo:/var/www/html:ro
+      - ./nginx/default.conf:/etc/nginx:ro
+      - code:/var/www/html:ro
     ports:
       - "${PORT:-8080}:80"
     networks:
       frontal:
+    restart: unless-stopped
+    depends_on:
+      yourls:
+        condition: service_started
   yourls:
     image: yourls:1.10-fpm
     networks:
       frontal:
       interna:
     volumes:
-      - codigo:/var/www/html
+      - code:/var/www/html
     environment:
-      - YOURLS_SITE="https://prueba.com"
+      - YOURLS_SITE="${URL:?URL missing in .env file}"
       - YOURLS_USER=${Y_USER:?Yourls user missing in .env file}
       - YOURLS_PASS=${Y_PASS:?Yourls password missing in .env file}
       - YOURLS_DB_HOST=db
       - YOURLS_DB_USER=${DB_USER:?Database username missing in .env file}
       - YOURLS_DB_PASS=${DB_PASS:?Database password missing in .env file}
       - YOURLS_DB_NAME=${DB_NAME:?Database name missing in .env file}
-
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
   db:
+    image: mariadb:11.8
+    networks:
+      interna:
+    volumes:
+      - db-data:/var/lib/mysql
+    environment:
+      - MARIADB_RANDOM_ROOT_PASSWORD=1
+      - MARIADB_DATABASE=${DB_NAME:?Database name missing in .env file}
+      - MARIADB_USER=${DB_USER:?Database username missing in .env file}
+      - MARIADB_PASSWORD=${DB_PASS:?Database password missing in .env file}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 networks:
   frontal:
   interna:
 volumes:
+  db-data:
+  code:
