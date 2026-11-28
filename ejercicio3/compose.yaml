@@ -1,0 +1,16 @@
+services:
+  web:
+    image: nginx:1.30
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d:ro
+      - codigo
+    ports:
+      - "${PORT:-8080}:80"
+    networks:
+      frontal:
+  yourls:
+  bd:
+networks:
+  frontal:
+  interna:
+volumes:
